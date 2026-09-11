@@ -359,12 +359,6 @@ public class PedidoServlet extends HttpServlet {
         );
       }
 
-      String creado =
-              requestParameterSeguro(
-                      response,
-                      "creado"
-              );
-
       out.println("""
                       <h2>Registrar pedido</h2>
 
@@ -649,12 +643,5 @@ public class PedidoServlet extends HttpServlet {
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
             .replace("'", "&#39;");
-  }
-
-  private String requestParameterSeguro(
-          HttpServletResponse response,
-          String parametro) {
-
-    return null;
   }
 }
