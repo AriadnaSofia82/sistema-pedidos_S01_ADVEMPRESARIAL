@@ -369,7 +369,7 @@ Ingresar a la carpeta:
 cd sistema-pedidos
 
 Limpiar y compilar el proyecto:
-mvn clean package
+mvn clean wildfly:run
 
 Si la compilación finaliza correctamente, se generará el archivo correspondiente dentro de:
 target/
