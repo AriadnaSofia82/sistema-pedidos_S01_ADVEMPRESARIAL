@@ -5,6 +5,7 @@ import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+
 import pe.edu.isil.pedidos.domain.Pedido;
 import pe.edu.isil.pedidos.domain.Producto;
 
@@ -14,239 +15,300 @@ import java.util.List;
 @Stateless
 public class PedidoService {
 
-  @PersistenceContext(unitName = "PedidosPU")
-  private EntityManager entityManager;
+    @PersistenceContext(unitName = "PedidosPU")
+    private EntityManager entityManager;
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public Pedido registrarPedido(
+            String cliente,
+            Long productoId,
+            int cantidad) {
 
-  @TransactionAttribute(TransactionAttributeType.REQUIRED)
-  public Pedido registrarPedido(
-          String cliente,
-          Long productoId,
-          int cantidad) {
+        if (cliente == null || cliente.isBlank()) {
+            throw new IllegalArgumentException(
+                    "El cliente es obligatorio."
+            );
+        }
 
-    if (cliente == null || cliente.isBlank()) {
-      throw new IllegalArgumentException(
-              "El cliente es obligatorio."
-      );
+        if (productoId == null) {
+            throw new IllegalArgumentException(
+                    "Debe seleccionar un producto."
+            );
+        }
+
+        if (cantidad <= 0) {
+            throw new IllegalArgumentException(
+                    "La cantidad debe ser mayor que cero."
+            );
+        }
+
+        Producto producto =
+                entityManager.find(
+                        Producto.class,
+                        productoId
+                );
+
+        if (producto == null) {
+            throw new IllegalArgumentException(
+                    "El producto no existe."
+            );
+        }
+        producto.descontarStock(cantidad);
+
+        BigDecimal total =
+                producto.getPrecio()
+                        .multiply(
+                                BigDecimal.valueOf(cantidad)
+                        );
+
+        Pedido pedido =
+                new Pedido(
+                        cliente.trim(),
+                        producto,
+                        cantidad,
+                        total
+                );
+
+        entityManager.persist(pedido);
+
+        return pedido;
     }
 
-    if (productoId == null) {
-      throw new IllegalArgumentException(
-              "Debe seleccionar un producto."
-      );
-    }
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public Pedido actualizarPedido(
+            Long pedidoId,
+            String cliente,
+            Long productoId,
+            Integer cantidad) {
+        if (pedidoId == null) {
+            throw new IllegalArgumentException(
+                    "El ID del pedido es obligatorio."
+            );
+        }
+        Pedido pedido =
+                entityManager.find(
+                        Pedido.class,
+                        pedidoId
+                );
 
-    if (cantidad <= 0) {
-      throw new IllegalArgumentException(
-              "La cantidad debe ser mayor que cero."
-      );
-    }
+        if (pedido == null) {
+            throw new IllegalArgumentException(
+                    "El pedido no existe."
+            );
+        }
+        String clienteActual =
+                pedido.getCliente();
 
-    Producto producto = entityManager.find(
-            Producto.class,
-            productoId
-    );
+        Producto productoActual =
+                pedido.getProducto();
 
-    if (producto == null) {
-      throw new IllegalArgumentException(
-              "El producto no existe."
-      );
-    }
-    producto.descontarStock(cantidad);
-    BigDecimal total = producto.getPrecio()
-            .multiply(BigDecimal.valueOf(cantidad));
-    Pedido pedido = new Pedido(
-            cliente.trim(),
-            producto,
-            cantidad,
-            total
-    );
+        int cantidadActual =
+                pedido.getCantidad();
+        String clienteNuevo;
 
-    entityManager.persist(pedido);
+        if (cliente == null) {
 
-    return pedido;
-  }
+            clienteNuevo =
+                    clienteActual;
 
-  @TransactionAttribute(TransactionAttributeType.REQUIRED)
-  public Pedido actualizarPedido(
-          Long pedidoId,
-          String cliente,
-          Long productoId,
-          int cantidad) {
+        } else {
 
-    if (pedidoId == null) {
-      throw new IllegalArgumentException(
-              "El pedido es obligatorio."
-      );
-    }
+            if (cliente.isBlank()) {
+                throw new IllegalArgumentException(
+                        "El cliente no puede estar vacío."
+                );
+            }
 
-    if (cliente == null || cliente.isBlank()) {
-      throw new IllegalArgumentException(
-              "El cliente es obligatorio."
-      );
-    }
+            clienteNuevo =
+                    cliente.trim();
+        }
+        Producto productoNuevo;
 
-    if (productoId == null) {
-      throw new IllegalArgumentException(
-              "Debe seleccionar un producto."
-      );
-    }
+        if (productoId == null) {
 
-    if (cantidad <= 0) {
-      throw new IllegalArgumentException(
-              "La cantidad debe ser mayor que cero."
-      );
-    }
+            productoNuevo =
+                    productoActual;
 
-    Pedido pedido = entityManager.find(
-            Pedido.class,
-            pedidoId
-    );
+        } else {
 
-    if (pedido == null) {
-      throw new IllegalArgumentException(
-              "El pedido no existe."
-      );
-    }
+            productoNuevo =
+                    entityManager.find(
+                            Producto.class,
+                            productoId
+                    );
 
-    Producto productoNuevo = entityManager.find(
-            Producto.class,
-            productoId
-    );
+            if (productoNuevo == null) {
+                throw new IllegalArgumentException(
+                        "El producto no existe."
+                );
+            }
+        }
+        int cantidadNueva;
 
-    if (productoNuevo == null) {
-      throw new IllegalArgumentException(
-              "El producto no existe."
-      );
-    }
+        if (cantidad == null) {
 
-    Producto productoAnterior = pedido.getProducto();
-    int cantidadAnterior = pedido.getCantidad();
+            cantidadNueva =
+                    cantidadActual;
 
-    if (productoAnterior.getId().equals(
-            productoNuevo.getId())) {
+        } else {
 
-      int diferencia =
-              cantidad - cantidadAnterior;
+            if (cantidad <= 0) {
+                throw new IllegalArgumentException(
+                        "La cantidad debe ser mayor que cero."
+                );
+            }
 
-      if (diferencia > 0) {
+            cantidadNueva =
+                    cantidad;
+        }
 
-        productoNuevo.descontarStock(
-                diferencia
-        );
+        if (productoActual.getId().equals(
+                productoNuevo.getId())) {
 
-      } else if (diferencia < 0) {
+            int diferencia =
+                    cantidadNueva - cantidadActual;
+            if (diferencia > 0) {
 
-        productoNuevo.aumentarStock(
-                -diferencia
-        );
-      }
+                try {
 
-    } else {
-      productoAnterior.aumentarStock(
-              cantidadAnterior
-      );
-      productoNuevo.descontarStock(
-              cantidad
-      );
-    }
+                    productoNuevo.descontarStock(
+                            diferencia
+                    );
 
-    BigDecimal total = productoNuevo
-            .getPrecio()
-            .multiply(
-                    BigDecimal.valueOf(cantidad)
+                } catch (IllegalStateException e) {
+
+                    throw new IllegalStateException(
+                            "Stock insuficiente. "
+                                    + e.getMessage()
+                    );
+                }
+            }
+            else if (diferencia < 0) {
+
+                productoNuevo.aumentarStock(
+                        -diferencia
+                );
+            }
+        }
+
+        else {
+            if (cantidadNueva >
+                    productoNuevo.getStock()) {
+
+                throw new IllegalStateException(
+                        "Stock insuficiente para el nuevo "
+                                + "producto. Disponible: "
+                                + productoNuevo.getStock()
+                );
+            }
+            productoActual.aumentarStock(
+                    cantidadActual
             );
 
-    pedido.actualizar(
-            cliente.trim(),
-            productoNuevo,
-            cantidad,
-            total
-    );
-    return pedido;
-  }
+            productoNuevo.descontarStock(
+                    cantidadNueva
+            );
+        }
 
-  @TransactionAttribute(TransactionAttributeType.REQUIRED)
-  public void eliminarPedido(Long pedidoId) {
+        BigDecimal totalNuevo =
+                productoNuevo.getPrecio()
+                        .multiply(
+                                BigDecimal.valueOf(
+                                        cantidadNueva
+                                )
+                        );
+        pedido.actualizar(
+                clienteNuevo,
+                productoNuevo,
+                cantidadNueva,
+                totalNuevo
+        );
 
-    if (pedidoId == null) {
-      throw new IllegalArgumentException(
-              "El pedido es obligatorio."
-      );
+        return pedido;
     }
 
-    Pedido pedido = entityManager.find(
-            Pedido.class,
-            pedidoId
-    );
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public void eliminarPedido(
+            Long pedidoId) {
 
-    if (pedido == null) {
-      throw new IllegalArgumentException(
-              "El pedido no existe."
-      );
+        if (pedidoId == null) {
+            throw new IllegalArgumentException(
+                    "El ID del pedido es obligatorio."
+            );
+        }
+
+        Pedido pedido =
+                entityManager.find(
+                        Pedido.class,
+                        pedidoId
+                );
+
+        if (pedido == null) {
+            throw new IllegalArgumentException(
+                    "El pedido no existe."
+            );
+        }
+
+        Producto producto =
+                pedido.getProducto();
+        producto.aumentarStock(
+                pedido.getCantidad()
+        );
+        entityManager.remove(pedido);
     }
 
-    Producto producto = pedido.getProducto();
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public List<Producto> listarProductos() {
 
-    producto.aumentarStock(
-            pedido.getCantidad()
-    );
-    entityManager.remove(pedido);
-  }
+        inicializarProductosSiEsNecesario();
 
-  @TransactionAttribute(TransactionAttributeType.REQUIRED)
-  public List<Producto> listarProductos() {
-
-    inicializarProductosSiEsNecesario();
-
-    return entityManager.createQuery(
-            "select p from Producto p order by p.id",
-            Producto.class
-    ).getResultList();
-  }
-
-  @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-  public List<Pedido> listarPedidos() {
-
-    return entityManager.createQuery(
-            "select p from Pedido p " +
-                    "join fetch p.producto " +
-                    "order by p.id desc",
-            Pedido.class
-    ).getResultList();
-  }
-
-  private void inicializarProductosSiEsNecesario() {
-
-    Long cantidad = entityManager.createQuery(
-            "select count(p) from Producto p",
-            Long.class
-    ).getSingleResult();
-
-    if (cantidad == 0) {
-
-      entityManager.persist(
-              new Producto(
-                      "Laptop",
-                      new BigDecimal("2500.00"),
-                      5
-              )
-      );
-
-      entityManager.persist(
-              new Producto(
-                      "Monitor",
-                      new BigDecimal("850.00"),
-                      8
-              )
-      );
-
-      entityManager.persist(
-              new Producto(
-                      "Teclado",
-                      new BigDecimal("120.00"),
-                      15
-              )
-      );
+        return entityManager.createQuery(
+                "select p from Producto p order by p.id",
+                Producto.class
+        ).getResultList();
     }
-  }
+
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<Pedido> listarPedidos() {
+        return entityManager.createQuery(
+                "select p from Pedido p " +
+                        "join fetch p.producto " +
+                        "order by p.id desc",
+                Pedido.class
+        ).getResultList();
+    }
+    private void inicializarProductosSiEsNecesario() {
+
+        Long cantidad =
+                entityManager.createQuery(
+                        "select count(p) from Producto p",
+                        Long.class
+                ).getSingleResult();
+
+        if (cantidad == 0) {
+
+            entityManager.persist(
+                    new Producto(
+                            "Laptop",
+                            new BigDecimal("2500.00"),
+                            5
+                    )
+            );
+
+            entityManager.persist(
+                    new Producto(
+                            "Monitor",
+                            new BigDecimal("850.00"),
+                            8
+                    )
+            );
+
+            entityManager.persist(
+                    new Producto(
+                            "Teclado",
+                            new BigDecimal("120.00"),
+                            15
+                    )
+            );
+        }
+    }
 }

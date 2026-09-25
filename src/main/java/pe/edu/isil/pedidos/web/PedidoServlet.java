@@ -22,38 +22,114 @@ public class PedidoServlet extends HttpServlet {
 
   @EJB
   private PedidoService pedidoService;
+
   @Override
   protected void doGet(
           HttpServletRequest request,
           HttpServletResponse response)
           throws ServletException, IOException {
 
-    renderizarPagina(response, null);
+    String creado = request.getParameter("creado");
+    String actualizado = request.getParameter("actualizado");
+    String eliminado = request.getParameter("eliminado");
+
+    String mensaje = null;
+
+    /*
+     * Mensaje después de registrar un pedido
+     */
+    if (creado != null && !creado.isBlank()) {
+
+      mensaje =
+              "Pedido registrado correctamente. ID: "
+                      + creado;
+    }
+
+    /*
+     * Mensaje después de actualizar un pedido
+     */
+    if (actualizado != null && !actualizado.isBlank()) {
+
+      mensaje =
+              "Pedido actualizado correctamente. ID: "
+                      + actualizado;
+    }
+
+    /*
+     * Mensaje después de eliminar un pedido
+     */
+    if (eliminado != null && !eliminado.isBlank()) {
+
+      mensaje =
+              "Pedido eliminado correctamente. ID: "
+                      + eliminado;
+    }
+
+    renderizarPagina(
+            response,
+            null,
+            mensaje
+    );
   }
+
   @Override
   protected void doPost(
           HttpServletRequest request,
           HttpServletResponse response)
           throws ServletException, IOException {
 
-    request.setCharacterEncoding(StandardCharsets.UTF_8.name());
+    request.setCharacterEncoding(
+            StandardCharsets.UTF_8.name()
+    );
 
     try {
-      String cliente = request.getParameter("cliente");
 
-      Long productoId = Long.valueOf(
-              request.getParameter("productoId")
-      );
+      String cliente =
+              request.getParameter("cliente");
 
-      int cantidad = Integer.parseInt(
-              request.getParameter("cantidad")
-      );
+      String productoParametro =
+              request.getParameter("productoId");
 
-      Pedido pedido = pedidoService.registrarPedido(
-              cliente,
-              productoId,
-              cantidad
-      );
+      String cantidadParametro =
+              request.getParameter("cantidad");
+
+      if (productoParametro == null ||
+              productoParametro.isBlank()) {
+
+        throw new IllegalArgumentException(
+                "Debe seleccionar un producto."
+        );
+      }
+
+      if (cantidadParametro == null ||
+              cantidadParametro.isBlank()) {
+
+        throw new IllegalArgumentException(
+                "La cantidad es obligatoria."
+        );
+      }
+
+      Long productoId =
+              Long.valueOf(
+                      productoParametro
+              );
+
+      int cantidad =
+              Integer.parseInt(
+                      cantidadParametro
+              );
+
+      Pedido pedido =
+              pedidoService.registrarPedido(
+                      cliente,
+                      productoId,
+                      cantidad
+              );
+
+      /*
+       * Después de registrar:
+       * /pedidos?creado=ID
+       */
       response.sendRedirect(
               request.getContextPath()
                       + "/pedidos?creado="
@@ -68,11 +144,11 @@ public class PedidoServlet extends HttpServlet {
 
       renderizarPagina(
               response,
-              "Producto o cantidad inválidos."
+              "Producto o cantidad inválidos.",
+              null
       );
 
-    } catch (IllegalArgumentException |
-             IllegalStateException e) {
+    } catch (IllegalArgumentException e) {
 
       response.setStatus(
               HttpServletResponse.SC_BAD_REQUEST
@@ -80,7 +156,20 @@ public class PedidoServlet extends HttpServlet {
 
       renderizarPagina(
               response,
-              e.getMessage()
+              e.getMessage(),
+              null
+      );
+
+    } catch (IllegalStateException e) {
+
+      response.setStatus(
+              HttpServletResponse.SC_BAD_REQUEST
+      );
+
+      renderizarPagina(
+              response,
+              e.getMessage(),
+              null
       );
     }
   }
@@ -96,69 +185,146 @@ public class PedidoServlet extends HttpServlet {
     );
 
     try {
-      Long id = Long.valueOf(
-              request.getParameter("id")
-      );
 
-      String cliente = request.getParameter("cliente");
+      String idParametro =
+              request.getParameter("id");
 
-      Long productoId = Long.valueOf(
-              request.getParameter("productoId")
-      );
+      if (idParametro == null ||
+              idParametro.isBlank()) {
 
-      int cantidad = Integer.parseInt(
-              request.getParameter("cantidad")
-      );
+        throw new IllegalArgumentException(
+                "El ID del pedido es obligatorio."
+        );
+      }
 
-      Pedido pedido = pedidoService.actualizarPedido(
-              id,
-              cliente,
-              productoId,
-              cantidad
-      );
+      Long id =
+              Long.valueOf(
+                      idParametro
+              );
 
-      response.setContentType(
-              "text/plain;charset=UTF-8"
-      );
+      String cliente =
+              request.getParameter("cliente");
+
+      String productoParametro =
+              request.getParameter("productoId");
+
+      String cantidadParametro =
+              request.getParameter("cantidad");
+
+      Long productoId = null;
+
+      if (productoParametro != null &&
+              !productoParametro.isBlank()) {
+
+        productoId =
+                Long.valueOf(
+                        productoParametro
+                );
+      }
+
+      Integer cantidad = null;
+
+      if (cantidadParametro != null &&
+              !cantidadParametro.isBlank()) {
+
+        cantidad =
+                Integer.valueOf(
+                        cantidadParametro
+                );
+      }
+
+      Pedido pedido =
+              pedidoService.actualizarPedido(
+                      id,
+                      cliente,
+                      productoId,
+                      cantidad
+              );
+
+      /*
+       * Respuesta HTTP del PUT.
+       *
+       * IMPORTANTE:
+       * El PUT NO hace redirect porque el JavaScript
+       * necesita recibir la respuesta directamente.
+       */
+      response.reset();
 
       response.setStatus(
               HttpServletResponse.SC_OK
       );
 
-      try (PrintWriter out = response.getWriter()) {
+      response.setContentType(
+              "text/plain;charset=UTF-8"
+      );
+
+      try (PrintWriter out =
+                   response.getWriter()) {
+
         out.println(
-                "Pedido actualizado correctamente. ID: "
+                "Pedido actualizado correctamente."
+        );
+
+        out.println(
+                "ID: "
                         + pedido.getId()
+        );
+
+        out.println(
+                "Cliente: "
+                        + pedido.getCliente()
+        );
+
+        out.println(
+                "Producto: "
+                        + pedido.getProducto()
+                        .getNombre()
+        );
+
+        out.println(
+                "Cantidad: "
+                        + pedido.getCantidad()
+        );
+
+        out.println(
+                "Total: S/ "
+                        + pedido.getTotal()
+                        .toPlainString()
         );
       }
 
     } catch (NumberFormatException e) {
 
-      response.setStatus(
-              HttpServletResponse.SC_BAD_REQUEST
+      enviarError(
+              response,
+              HttpServletResponse.SC_BAD_REQUEST,
+              "Error de datos: ID, producto o cantidad inválidos."
       );
 
-      response.setContentType(
-              "text/plain;charset=UTF-8"
+    } catch (IllegalArgumentException e) {
+
+      enviarError(
+              response,
+              HttpServletResponse.SC_BAD_REQUEST,
+              "Error de validación: "
+                      + e.getMessage()
       );
 
-      response.getWriter().println(
-              "ID, producto o cantidad inválidos."
+    } catch (IllegalStateException e) {
+
+      enviarError(
+              response,
+              HttpServletResponse.SC_BAD_REQUEST,
+              "Error de stock: "
+                      + e.getMessage()
       );
 
-    } catch (IllegalArgumentException |
-             IllegalStateException e) {
+    } catch (Exception e) {
 
-      response.setStatus(
-              HttpServletResponse.SC_BAD_REQUEST
-      );
-
-      response.setContentType(
-              "text/plain;charset=UTF-8"
-      );
-
-      response.getWriter().println(
-              e.getMessage()
+      enviarError(
+              response,
+              HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+              "Error interno al actualizar el pedido."
       );
     }
   }
@@ -174,9 +340,22 @@ public class PedidoServlet extends HttpServlet {
     );
 
     try {
-      Long id = Long.valueOf(
-              request.getParameter("id")
-      );
+
+      String idParametro =
+              request.getParameter("id");
+
+      if (idParametro == null ||
+              idParametro.isBlank()) {
+
+        throw new IllegalArgumentException(
+                "El ID del pedido es obligatorio."
+        );
+      }
+
+      Long id =
+              Long.valueOf(
+                      idParametro
+              );
 
       pedidoService.eliminarPedido(id);
 
@@ -186,38 +365,63 @@ public class PedidoServlet extends HttpServlet {
 
     } catch (NumberFormatException e) {
 
-      response.setStatus(
-              HttpServletResponse.SC_BAD_REQUEST
-      );
-
-      response.setContentType(
-              "text/plain;charset=UTF-8"
-      );
-
-      response.getWriter().println(
+      enviarError(
+              response,
+              HttpServletResponse.SC_BAD_REQUEST,
               "El ID del pedido es inválido."
       );
 
-    } catch (IllegalArgumentException |
-             IllegalStateException e) {
+    } catch (IllegalArgumentException e) {
 
-      response.setStatus(
-              HttpServletResponse.SC_BAD_REQUEST
-      );
-
-      response.setContentType(
-              "text/plain;charset=UTF-8"
-      );
-
-      response.getWriter().println(
+      enviarError(
+              response,
+              HttpServletResponse.SC_BAD_REQUEST,
               e.getMessage()
       );
+
+    } catch (IllegalStateException e) {
+
+      enviarError(
+              response,
+              HttpServletResponse.SC_BAD_REQUEST,
+              e.getMessage()
+      );
+
+    } catch (Exception e) {
+
+      enviarError(
+              response,
+              HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+              "Error interno al eliminar el pedido."
+      );
+    }
+  }
+
+  private void enviarError(
+          HttpServletResponse response,
+          int status,
+          String mensaje)
+          throws IOException {
+
+    response.reset();
+
+    response.setStatus(status);
+
+    response.setContentType(
+            "text/plain;charset=UTF-8"
+    );
+
+    try (PrintWriter out =
+                 response.getWriter()) {
+
+      out.println(mensaje);
     }
   }
 
   private void renderizarPagina(
           HttpServletResponse response,
-          String error)
+          String error,
+          String mensaje)
           throws IOException {
 
     List<Producto> productos =
@@ -230,125 +434,196 @@ public class PedidoServlet extends HttpServlet {
             "text/html;charset=UTF-8"
     );
 
-    try (PrintWriter out = response.getWriter()) {
+    try (PrintWriter out =
+                 response.getWriter()) {
 
       out.println("""
                     <!doctype html>
                     <html lang="es">
+
                     <head>
-                      <meta charset="UTF-8">
-                      <meta name="viewport"
-                            content="width=device-width, initial-scale=1">
 
-                      <title>Sistema de Pedidos - ISIL</title>
+                        <meta charset="UTF-8">
 
-                      <style>
-                        body {
-                          font-family: Arial, sans-serif;
-                          max-width: 1100px;
-                          margin: 32px auto;
-                          padding: 0 16px;
-                        }
+                        <meta name="viewport"
+                              content="width=device-width, initial-scale=1">
 
-                        form {
-                          display: grid;
-                          grid-template-columns:
-                            2fr 2fr 1fr auto;
-                          gap: 12px;
-                          align-items: end;
-                        }
+                        <title>Sistema de Pedidos - ISIL</title>
 
-                        label {
-                          display: flex;
-                          flex-direction: column;
-                          gap: 6px;
-                          font-weight: 600;
-                        }
+                        <style>
 
-                        input,
-                        select,
-                        button {
-                          padding: 10px;
-                          font-size: 14px;
-                        }
+                            * {
+                                box-sizing: border-box;
+                            }
 
-                        button {
-                          cursor: pointer;
-                        }
+                            body {
+                                font-family: Arial, sans-serif;
+                                max-width: 1150px;
+                                margin: 32px auto;
+                                padding: 0 16px;
+                                background: #f8f9fa;
+                                color: #222;
+                            }
 
-                        table {
-                          width: 100%;
-                          border-collapse: collapse;
-                          margin-top: 24px;
-                        }
+                            h1 {
+                                margin-bottom: 8px;
+                            }
 
-                        th,
-                        td {
-                          border: 1px solid #ccc;
-                          padding: 9px;
-                          text-align: left;
-                        }
+                            h2 {
+                                margin-top: 30px;
+                            }
 
-                        th {
-                          background: #f2f2f2;
-                        }
+                            form {
+                                display: grid;
+                                grid-template-columns:
+                                    2fr 2fr 1fr auto;
+                                gap: 12px;
+                                align-items: end;
+                            }
 
-                        .error {
-                          background: #ffe7e7;
-                          border: 1px solid #d33;
-                          padding: 10px;
-                          margin: 16px 0;
-                        }
+                            label {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 6px;
+                                font-weight: 600;
+                            }
 
-                        .success {
-                          background: #e7ffe7;
-                          border: 1px solid #3a3;
-                          padding: 10px;
-                          margin: 16px 0;
-                        }
+                            input,
+                            select,
+                            button {
+                                padding: 10px;
+                                font-size: 14px;
+                                border-radius: 5px;
+                            }
 
-                        .nota {
-                          background: #f5f5f5;
-                          padding: 10px;
-                          margin: 16px 0;
-                        }
+                            input,
+                            select {
+                                border: 1px solid #bbb;
+                                background: white;
+                            }
 
-                        .acciones {
-                          white-space: nowrap;
-                        }
+                            button {
+                                cursor: pointer;
+                                border: none;
+                            }
 
-                        .btn-editar {
-                          background: #f0ad4e;
-                          border: none;
-                          color: white;
-                        }
+                            .btn-registrar {
+                                background: #198754;
+                                color: white;
+                            }
 
-                        .btn-eliminar {
-                          background: #d9534f;
-                          border: none;
-                          color: white;
-                        }
+                            .btn-editar {
+                                background: #f0ad4e;
+                                color: white;
+                                margin-right: 5px;
+                            }
 
-                        @media (max-width: 800px) {
-                          form {
-                            grid-template-columns: 1fr;
-                          }
-                        }
-                      </style>
+                            .btn-eliminar {
+                                background: #d9534f;
+                                color: white;
+                            }
+
+                            .btn-guardar {
+                                background: #0d6efd;
+                                color: white;
+                            }
+
+                            .btn-cancelar {
+                                background: #6c757d;
+                                color: white;
+                            }
+
+                            table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 24px;
+                                background: white;
+                            }
+
+                            th,
+                            td {
+                                border: 1px solid #ccc;
+                                padding: 10px;
+                                text-align: left;
+                            }
+
+                            th {
+                                background: #e9ecef;
+                            }
+
+                            .error {
+                                background: #ffe7e7;
+                                border: 1px solid #d33;
+                                padding: 12px;
+                                margin: 16px 0;
+                                border-radius: 5px;
+                            }
+
+                            .success {
+                                background: #e7ffe7;
+                                border: 1px solid #3a3;
+                                padding: 12px;
+                                margin: 16px 0;
+                                border-radius: 5px;
+                            }
+
+                            .nota {
+                                background: #e9ecef;
+                                padding: 12px;
+                                margin: 16px 0;
+                                border-radius: 5px;
+                            }
+
+                            .edit-panel {
+                                background: white;
+                                border: 2px solid #0d6efd;
+                                padding: 20px;
+                                margin-top: 25px;
+                                border-radius: 8px;
+                            }
+
+                            .edit-actions {
+                                display: flex;
+                                gap: 10px;
+                                margin-top: 10px;
+                            }
+
+                            .acciones {
+                                white-space: nowrap;
+                            }
+
+                            @media (max-width: 800px) {
+
+                                form {
+                                    grid-template-columns: 1fr;
+                                }
+
+                                table {
+                                    display: block;
+                                    overflow-x: auto;
+                                }
+
+                                .acciones {
+                                    white-space: normal;
+                                }
+                            }
+
+                        </style>
+
                     </head>
 
                     <body>
 
-                      <h1>Sistema de Pedidos</h1>
+                        <h1>Sistema de Pedidos</h1>
 
-                      <p class="nota">
-                        Flujo:
-                        Navegador →
-                        PedidoServlet →
-                        PedidoService (EJB) →
-                        JPA →
-                        H2.
-                      </p>
+                        <p class="nota">
+                            Flujo:
+                            Navegador →
+                            PedidoServlet →
+                            PedidoService (EJB) →
+                            JPA →
+                            H2
+                        </p>
                     """);
 
       if (error != null) {
@@ -359,80 +634,189 @@ public class PedidoServlet extends HttpServlet {
         );
       }
 
+      if (mensaje != null) {
+
+        out.printf(
+                "<div class=\"success\">%s</div>%n",
+                escapeHtml(mensaje)
+        );
+      }
+
       out.println("""
-                      <h2>Registrar pedido</h2>
+                        <h2>Registrar pedido</h2>
 
-                      <form method="post">
+                        <form method="post">
 
-                        <label>
-                          Cliente
-                          <input
-                            name="cliente"
-                            required
-                            maxlength="120"
-                            placeholder="Ej. Ana Torres">
-                        </label>
+                            <label>
+                                Cliente
 
-                        <label>
-                          Producto
-                          <select
-                            name="productoId"
-                            required>
+                                <input
+                                    name="cliente"
+                                    required
+                                    maxlength="120"
+                                    placeholder="Ej. Ana Torres">
+                            </label>
+
+                            <label>
+                                Producto
+
+                                <select
+                                    name="productoId"
+                                    required>
                     """);
 
       for (Producto producto : productos) {
 
-        out.printf(
-                """
-                <option value="%d">
-                  %s - S/ %s - stock: %d
-                </option>
-                %n
-                """,
+        out.printf("""
+                                <option value="%d">
+                                    %s - S/ %s - stock: %d
+                                </option>
+                                %n
+                        """,
                 producto.getId(),
-                escapeHtml(producto.getNombre()),
-                producto.getPrecio().toPlainString(),
+                escapeHtml(
+                        producto.getNombre()
+                ),
+                producto.getPrecio()
+                        .toPlainString(),
                 producto.getStock()
         );
       }
 
       out.println("""
-                          </select>
-                        </label>
+                            </select>
+                            </label>
 
-                        <label>
-                          Cantidad
-                          <input
-                            name="cantidad"
-                            type="number"
-                            min="1"
-                            value="1"
-                            required>
-                        </label>
+                            <label>
+                                Cantidad
 
-                        <button type="submit">
-                          Registrar
-                        </button>
+                                <input
+                                    name="cantidad"
+                                    type="number"
+                                    min="1"
+                                    value="1"
+                                    required>
+                            </label>
 
-                      </form>
+                            <button
+                                type="submit"
+                                class="btn-registrar">
+                                Registrar
+                            </button>
 
-                      <h2>Pedidos registrados</h2>
+                        </form>
 
-                      <table>
+                        <section
+                            id="formEdicion"
+                            class="edit-panel"
+                            style="display:none;">
 
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Cliente</th>
-                            <th>Producto</th>
-                            <th>Cantidad</th>
-                            <th>Total</th>
-                            <th>Fecha</th>
-                            <th>Acciones</th>
-                          </tr>
-                        </thead>
+                            <h2>
+                                Editar pedido #
+                                <span id="editPedidoIdTexto"></span>
+                            </h2>
 
-                        <tbody>
+                            <p class="nota">
+                                Modifica los datos del pedido seleccionado.
+                                Los demás pedidos no serán afectados.
+                            </p>
+
+                            <form id="formEditar">
+
+                                <input
+                                    type="hidden"
+                                    id="editPedidoId">
+
+                                <label>
+                                    Cliente
+
+                                    <input
+                                        type="text"
+                                        id="editCliente"
+                                        maxlength="120"
+                                        required>
+                                </label>
+
+                                <label>
+                                    Producto
+
+                                    <select
+                                        id="editProducto"
+                                        required>
+                    """);
+
+      for (Producto producto : productos) {
+
+        out.printf("""
+                                    <option value="%d">
+                                        %s - S/ %s - stock: %d
+                                    </option>
+                                    %n
+                            """,
+                producto.getId(),
+                escapeHtml(
+                        producto.getNombre()
+                ),
+                producto.getPrecio()
+                        .toPlainString(),
+                producto.getStock()
+        );
+      }
+
+      out.println("""
+                                </select>
+                                </label>
+
+                                <label>
+                                    Cantidad
+
+                                    <input
+                                        type="number"
+                                        id="editCantidad"
+                                        min="1"
+                                        required>
+                                </label>
+
+                                <div class="edit-actions">
+
+                                    <button
+                                        type="submit"
+                                        class="btn-guardar">
+                                        Guardar cambios
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn-cancelar"
+                                        onclick="cancelarEdicion()">
+                                        Cancelar
+                                    </button>
+
+                                </div>
+
+                            </form>
+
+                        </section>
+
+                        <h2>Pedidos registrados</h2>
+
+                        <table>
+
+                            <thead>
+
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Total</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
                     """);
 
       DateTimeFormatter formatter =
@@ -442,190 +826,341 @@ public class PedidoServlet extends HttpServlet {
 
       for (Pedido pedido : pedidos) {
 
-        out.printf(
-                """
-                <tr>
-                  <td>%d</td>
+        out.printf("""
+                            <tr>
 
-                  <td>%s</td>
+                                <td>%d</td>
 
-                  <td>%s</td>
+                                <td>%s</td>
 
-                  <td>%d</td>
+                                <td>%s</td>
 
-                  <td>S/ %s</td>
+                                <td>%d</td>
 
-                  <td>%s</td>
+                                <td>S/ %s</td>
 
-                  <td class="acciones">
+                                <td>%s</td>
 
-                    <button
-                      type="button"
-                      class="btn-editar"
-                      onclick="editarPedido(%d)">
-                      Editar
-                    </button>
+                                <td class="acciones">
 
-                    <button
-                      type="button"
-                      class="btn-eliminar"
-                      onclick="eliminarPedido(%d)">
-                      Eliminar
-                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn-editar"
+                                        onclick="editarPedido(this)"
+                                        data-id="%d"
+                                        data-cliente="%s"
+                                        data-producto="%d"
+                                        data-cantidad="%d">
+                                        Editar
+                                    </button>
 
-                  </td>
-                </tr>
-                %n
-                """,
+                                    <button
+                                        type="button"
+                                        class="btn-eliminar"
+                                        onclick="eliminarPedido(%d)">
+                                        Eliminar
+                                    </button>
+
+                                </td>
+
+                            </tr>
+                            %n
+                        """,
                 pedido.getId(),
-                escapeHtml(pedido.getCliente()),
+
                 escapeHtml(
-                        pedido.getProducto().getNombre()
+                        pedido.getCliente()
                 ),
+
+                escapeHtml(
+                        pedido.getProducto()
+                                .getNombre()
+                ),
+
                 pedido.getCantidad(),
-                pedido.getTotal().toPlainString(),
-                pedido.getFecha().format(formatter),
+
+                pedido.getTotal()
+                        .toPlainString(),
+
+                pedido.getFecha()
+                        .format(formatter),
+
                 pedido.getId(),
+
+                escapeHtml(
+                        pedido.getCliente()
+                ),
+
+                pedido.getProducto()
+                        .getId(),
+
+                pedido.getCantidad(),
+
                 pedido.getId()
         );
       }
 
       if (pedidos.isEmpty()) {
 
-        out.println(
-                """
-                <tr>
-                  <td colspan="7">
-                    Aún no hay pedidos.
-                  </td>
-                </tr>
-                """
-        );
+        out.println("""
+                            <tr>
+                                <td colspan="7">
+                                    Aún no hay pedidos.
+                                </td>
+                            </tr>
+                        """);
       }
 
       out.println("""
-                        </tbody>
-                      </table>
+                            </tbody>
 
-                      <script>
+                        </table>
 
-                        function editarPedido(id) {
+                        <script>
 
-                          const cliente =
-                            prompt(
-                              "Nuevo cliente:"
-                            );
+                            function editarPedido(boton) {
 
-                          if (cliente === null) {
-                            return;
-                          }
+                                const id =
+                                    boton.dataset.id;
 
-                          const productoId =
-                            prompt(
-                              "Nuevo ID de producto:"
-                            );
+                                const cliente =
+                                    boton.dataset.cliente;
 
-                          if (productoId === null) {
-                            return;
-                          }
+                                const productoId =
+                                    boton.dataset.producto;
 
-                          const cantidad =
-                            prompt(
-                              "Nueva cantidad:"
-                            );
+                                const cantidad =
+                                    boton.dataset.cantidad;
 
-                          if (cantidad === null) {
-                            return;
-                          }
+                                document.getElementById(
+                                    "editPedidoId"
+                                ).value = id;
 
-                          fetch(
-                            "pedidos?id="
-                              + encodeURIComponent(id)
-                              + "&cliente="
-                              + encodeURIComponent(cliente)
-                              + "&productoId="
-                              + encodeURIComponent(productoId)
-                              + "&cantidad="
-                              + encodeURIComponent(cantidad),
-                            {
-                              method: "PUT"
-                            }
-                          )
-                          .then(async response => {
+                                document.getElementById(
+                                    "editPedidoIdTexto"
+                                ).textContent = id;
 
-                            const mensaje =
-                              await response.text();
+                                document.getElementById(
+                                    "editCliente"
+                                ).value = cliente;
 
-                            if (!response.ok) {
-                              throw new Error(
-                                mensaje
-                              );
+                                document.getElementById(
+                                    "editProducto"
+                                ).value = productoId;
+
+                                document.getElementById(
+                                    "editCantidad"
+                                ).value = cantidad;
+
+                                document.getElementById(
+                                    "formEdicion"
+                                ).style.display = "block";
+
+                                document.getElementById(
+                                    "formEdicion"
+                                ).scrollIntoView({
+                                    behavior: "smooth"
+                                });
                             }
 
-                            alert(mensaje);
+                            function cancelarEdicion() {
 
-                            location.reload();
-                          })
-                          .catch(error => {
+                                document.getElementById(
+                                    "formEdicion"
+                                ).style.display = "none";
 
-                            alert(
-                              "Error: "
-                                + error.message
-                            );
-                          });
-                        }
-
-
-                        function eliminarPedido(id) {
-
-                          const confirmar =
-                            confirm(
-                              "¿Deseas eliminar el pedido "
-                                + id
-                                + "?"
-                            );
-
-                          if (!confirmar) {
-                            return;
-                          }
-
-                          fetch(
-                            "pedidos?id="
-                              + encodeURIComponent(id),
-                            {
-                              method: "DELETE"
-                            }
-                          )
-                          .then(async response => {
-
-                            if (!response.ok) {
-
-                              const mensaje =
-                                await response.text();
-
-                              throw new Error(
-                                mensaje
-                              );
+                                document.getElementById(
+                                    "formEditar"
+                                ).reset();
                             }
 
-                            alert(
-                              "Pedido eliminado correctamente."
+                            document.getElementById(
+                                "formEditar"
+                            ).addEventListener(
+                                "submit",
+                                function(event) {
+
+                                    event.preventDefault();
+
+                                    const id =
+                                        document.getElementById(
+                                            "editPedidoId"
+                                        ).value;
+
+                                    const cliente =
+                                        document.getElementById(
+                                            "editCliente"
+                                        ).value.trim();
+
+                                    const productoId =
+                                        document.getElementById(
+                                            "editProducto"
+                                        ).value;
+
+                                    const cantidad =
+                                        document.getElementById(
+                                            "editCantidad"
+                                        ).value;
+
+                                    if (!cliente) {
+
+                                        alert(
+                                            "El cliente es obligatorio."
+                                        );
+
+                                        return;
+                                    }
+
+                                    if (!productoId) {
+
+                                        alert(
+                                            "Debe seleccionar un producto."
+                                        );
+
+                                        return;
+                                    }
+
+                                    if (!cantidad ||
+                                        Number(cantidad) <= 0) {
+
+                                        alert(
+                                            "La cantidad debe ser mayor que cero."
+                                        );
+
+                                        return;
+                                    }
+
+                                    const confirmar =
+                                        confirm(
+                                            "¿Deseas guardar los cambios " +
+                                            "del pedido " + id + "?"
+                                        );
+
+                                    if (!confirmar) {
+                                        return;
+                                    }
+
+                                    const url =
+                                        "pedidos?id="
+                                        + encodeURIComponent(id)
+                                        + "&cliente="
+                                        + encodeURIComponent(cliente)
+                                        + "&productoId="
+                                        + encodeURIComponent(productoId)
+                                        + "&cantidad="
+                                        + encodeURIComponent(cantidad);
+
+                                    fetch(
+                                        url,
+                                        {
+                                            method: "PUT"
+                                        }
+                                    )
+                                    .then(
+                                        async function(response) {
+
+                                            const mensaje =
+                                                await response.text();
+
+                                            if (!response.ok) {
+
+                                                throw new Error(
+                                                    mensaje
+                                                );
+                                            }
+
+                                            /*
+                                             * Mostrar primero la respuesta
+                                             * del servidor.
+                                             */
+                                            alert(mensaje);
+
+                                            /*
+                                             * Recargar la página enviando
+                                             * el ID actualizado.
+                                             *
+                                             * De esta manera doGet()
+                                             * mostrará:
+                                             *
+                                             * Pedido actualizado
+                                             * correctamente. ID: X
+                                             */
+                                            window.location.href =
+                                                "pedidos?actualizado="
+                                                + encodeURIComponent(id);
+                                        }
+                                    )
+                                    .catch(
+                                        function(error) {
+
+                                            alert(
+                                                "Error al actualizar: "
+                                                + error.message
+                                            );
+                                        }
+                                    );
+
+                                }
                             );
 
-                            location.reload();
-                          })
-                          .catch(error => {
+                            function eliminarPedido(id) {
 
-                            alert(
-                              "Error: "
-                                + error.message
-                            );
-                          });
-                        }
+                                const confirmar =
+                                    confirm(
+                                        "¿Deseas eliminar el pedido "
+                                        + id
+                                        + "?"
+                                    );
 
-                      </script>
+                                if (!confirmar) {
+                                    return;
+                                }
+
+                                fetch(
+                                    "pedidos?id="
+                                    + encodeURIComponent(id),
+                                    {
+                                        method: "DELETE"
+                                    }
+                                )
+                                .then(
+                                    async function(response) {
+
+                                        if (!response.ok) {
+
+                                            const mensaje =
+                                                await response.text();
+
+                                            throw new Error(
+                                                mensaje
+                                            );
+                                        }
+
+                                        /*
+                                         * DELETE responde 204,
+                                         * por lo que no se necesita
+                                         * leer response.text().
+                                         */
+                                        window.location.href =
+                                            "pedidos?eliminado="
+                                            + encodeURIComponent(id);
+                                    }
+                                )
+                                .catch(
+                                    function(error) {
+
+                                        alert(
+                                            "Error al eliminar: "
+                                            + error.message
+                                        );
+                                    }
+                                );
+                            }
+
+                        </script>
 
                     </body>
+
                     </html>
                     """);
     }
